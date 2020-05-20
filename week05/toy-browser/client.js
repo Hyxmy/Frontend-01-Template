@@ -9,7 +9,7 @@ class Request{
     this.host = options.host;
     this.port = options.port || 80;
     this.path = options.path || '/';
-    this.body = option.body || {};
+    this.body = options.body || {};
     this.headers = options.headers || {};
     if (!this.headers["Content-Type"]) {
       this.headers["Content-Type"] = "application/x-www-form-urlencoded";
@@ -17,15 +17,15 @@ class Request{
 
     if (this.headers["Content-Type"] === "application/json") {
       this.bodyText = JSON.stringify(this.body);
-    } else if (his.headers["Content-Type"] === "application/x-www-form-urlencoded") {
+    } else if (this.headers["Content-Type"] === "application/x-www-form-urlencoded") {
       this.bodyText = Object.keys(this.body).map(key => `${key}=${this.body[key]}`).join('&');
     }
     this.headers['Content-Length'] = this.bodyText.length;
   }
   toString() {
-    return `${this.method} ${this.path} HTTP/1.1\r`,
-    `${Object.keys(this.headers).map(h => `${h}: ${this.headers[h]}`).join('\r\n')}`,
-    `\n`,
+    return `${this.method} ${this.path} HTTP/1.1\r\n`+
+    `${Object.keys(this.headers).map(h => `${h}: ${this.headers[h]}`).join('\r\n')}`+
+    `\r\n\r\n`+
     `${this.bodyText}`;
   }
   open(method, path) {
@@ -43,6 +43,7 @@ class Request{
           connection.write(this.toString());
         })
         connection.on('data', (data) => {
+          // 收到的data是个buffer，先toString再处理
           const parser = new ResponseParser();
           parser.receive(data.toString());
           if (parser.isFinished) {
@@ -94,7 +95,7 @@ class ResponseParser{
     }
   }
   receive(string) {
-    for(let i = 0; i < string.legth; i++) {
+    for(let i = 0; i < string.length; i++) {
       this.receiveChar(string.charAt(i));
     }
 
@@ -139,7 +140,7 @@ class ResponseParser{
     }
   }
 }
-class TrunkedParser{
+class ChunkedBodyParser{
   constructor() {
     this.READING_LENGTH_FIRSR_CHAR = 0;
     this.READING_LENGTH = 1;
@@ -154,7 +155,7 @@ class TrunkedParser{
   }
 
   get isFinished () {
-    return this.current === this.BODY_BLOCK_END
+    return this.current === this.BODY_BLOCK_END;
   }
 
   receiveChar(char) {
